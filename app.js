@@ -38,7 +38,7 @@ app.use("/recipientTransaction", recipientTransactionRoutes);
 
 // Root endpoint
 app.get("/", (req, res) => {
-  res.send("🌍 Community Service API running locally with CORS enabled!");
+  res.send("Community Service API running locally with CORS enabled!");
 });
 
 
