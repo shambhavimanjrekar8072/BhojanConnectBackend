@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 const RecipientTransaction = require("../models/RecipientTransaction");
 const NGO = require("../models/NGO");
 
-// Book Food API (Plates reduce here)
+//  Book Food API (Plates reduce here)
 const bookFood = async (req, res) => {
   try {
     const { recipientId, ngoId, quantity } = req.body;
@@ -69,75 +69,61 @@ const bookFood = async (req, res) => {
   }
 };
 
-//  Take Food API 
+//  Take Food API
 const takeFood = async (req, res) => {
   try {
     const { recipientId, ngoId, quantity } = req.body;
 
     // Validation
     if (!recipientId || !ngoId || !quantity) {
-      return res.status(400).json({
-        error: "Recipient ID, NGO ID, and quantity are required.",
-      });
+      return res.status(400).json({ error: "Recipient ID, NGO ID, and quantity are required." });
     }
 
-    if (
-      !mongoose.Types.ObjectId.isValid(recipientId) ||
-      !mongoose.Types.ObjectId.isValid(ngoId)
-    ) {
-      return res.status(400).json({
-        error: "Invalid recipientId or ngoId format.",
-      });
+    if (!mongoose.Types.ObjectId.isValid(recipientId) || !mongoose.Types.ObjectId.isValid(ngoId)) {
+      return res.status(400).json({ error: "Invalid recipientId or ngoId format." });
     }
 
     if (quantity <= 0) {
-      return res.status(400).json({
-        error: "Quantity must be greater than 0.",
-      });
+      return res.status(400).json({ error: "Quantity must be greater than 0." });
     }
 
-    // Convert IDs for aggregation
-    const recipientObjId = new mongoose.Types.ObjectId(recipientId);
-    const ngoObjId = new mongoose.Types.ObjectId(ngoId);
+    // Find the booked transaction(s) for this recipient and NGO
+    const bookedTransactions = await RecipientTransaction.find({
+      recipientId,
+      ngoId,
+      transactionType: "book",
+    }).sort({ createdAt: 1 }); // optional: first booked gets taken first
 
-    // Check total booked and taken
-    const bookedTransactions = await RecipientTransaction.aggregate([
-      { $match: { recipientId: recipientObjId, ngoId: ngoObjId, transactionType: "book" } },
-      { $group: { _id: null, totalBooked: { $sum: "$quantity" } } },
-    ]);
-
-    const takenTransactions = await RecipientTransaction.aggregate([
-      { $match: { recipientId: recipientObjId, ngoId: ngoObjId, transactionType: "take" } },
-      { $group: { _id: null, totalTaken: { $sum: "$quantity" } } },
-    ]);
-
-    const totalBooked = bookedTransactions.length ? bookedTransactions[0].totalBooked : 0;
-    const totalTaken = takenTransactions.length ? takenTransactions[0].totalTaken : 0;
-    const remainingToTake = totalBooked - totalTaken;
+    let remainingToTake = bookedTransactions.reduce(
+      (acc, txn) => acc + (txn.quantity - (txn.taken || 0)),
+      0
+    );
 
     if (remainingToTake <= 0) {
       return res.status(400).json({ error: "No booked food available to take." });
     }
 
     if (quantity > remainingToTake) {
-      return res.status(400).json({
-        error: `You can only take up to ${remainingToTake} plates.`,
-      });
+      return res.status(400).json({ error: `You can only take up to ${remainingToTake} plates.` });
     }
 
-    // Record the take transaction (plates NOT reduced)
-    const transaction = new RecipientTransaction({
-      recipientId,
-      ngoId,
-      quantity,
-      transactionType: "take",
-    });
+    // Update the booked transactions sequentially
+    let qtyToTake = quantity;
+    for (const txn of bookedTransactions) {
+      const available = txn.quantity - (txn.taken || 0);
+      if (available <= 0) continue;
 
-    await transaction.save();
+      const takeNow = Math.min(available, qtyToTake);
+      txn.taken = (txn.taken || 0) + takeNow;
+      await txn.save();
+
+      qtyToTake -= takeNow;
+      if (qtyToTake <= 0) break;
+    }
 
     res.status(200).json({
-      message: "Food taken successfully (plates unchanged).",
-      transaction,
+      message: "Food taken successfully (book transaction updated).",
+      totalTaken: quantity,
       remainingAfterTake: remainingToTake - quantity,
     });
   } catch (err) {
@@ -148,6 +134,7 @@ const takeFood = async (req, res) => {
     });
   }
 };
+
 
 // List all recipient transactions
 const getAllRecipientTransactions = async (req, res) => {
@@ -161,7 +148,6 @@ const getAllRecipientTransactions = async (req, res) => {
     res.status(500).json({ error: "Server error", details: err.message });
   }
 };
-
 // List recipients who booked food from a specific NGO
 const listRecipientsBooked = async (req, res) => {
   try {
@@ -180,7 +166,7 @@ const listRecipientsBooked = async (req, res) => {
       { $group: { _id: "$recipientId", totalBooked: { $sum: "$quantity" } } },
       {
         $lookup: {
-          from: "recipients",
+          from: "recipients",       // MongoDB collection name
           localField: "_id",
           foreignField: "_id",
           as: "recipientInfo",
@@ -191,7 +177,7 @@ const listRecipientsBooked = async (req, res) => {
         $project: {
           _id: 0,
           recipientId: "$_id",
-          name: "$recipientInfo.name",
+          name: "$recipientInfo.username", // <-- use correct field
           email: "$recipientInfo.email",
           totalBooked: 1,
         },
@@ -207,6 +193,8 @@ const listRecipientsBooked = async (req, res) => {
     });
   }
 };
+
+
 
 module.exports = {
   bookFood,
