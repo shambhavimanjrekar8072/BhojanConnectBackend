@@ -1,10 +1,11 @@
-// routes/donorTransactionRoutes.js
 const express = require("express");
 const router = express.Router();
-const { donateFood } = require("../controllers/donorTransactionController");
-const auth = require("../middlewares/auth");
+const donorTransactionController = require("../controllers/donorTransactionController");
 
-// POST /donor/donate
-router.post("/donate", donateFood);
+// Record donation
+router.post("/donate", donorTransactionController.donateFood);
+
+// Get donors for a specific NGO
+router.get("/donors/:ngoId", donorTransactionController.getDonorsByNGO);
 
 module.exports = router;
