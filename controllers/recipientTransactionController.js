@@ -68,8 +68,7 @@ const bookFood = async (req, res) => {
     });
   }
 };
-
-//  Take Food API
+// Take Food API
 const takeFood = async (req, res) => {
   try {
     const { recipientId, ngoId, quantity } = req.body;
@@ -87,12 +86,13 @@ const takeFood = async (req, res) => {
       return res.status(400).json({ error: "Quantity must be greater than 0." });
     }
 
-    // Find the booked transaction(s) for this recipient and NGO
+    // Find booked transactions for this recipient and NGO
     const bookedTransactions = await RecipientTransaction.find({
       recipientId,
       ngoId,
       transactionType: "book",
-    }).sort({ createdAt: 1 }); // optional: first booked gets taken first
+      status: { $ne: "taken" } // exclude already fully taken
+    }).sort({ createdAt: 1 });
 
     let remainingToTake = bookedTransactions.reduce(
       (acc, txn) => acc + (txn.quantity - (txn.taken || 0)),
@@ -107,7 +107,7 @@ const takeFood = async (req, res) => {
       return res.status(400).json({ error: `You can only take up to ${remainingToTake} plates.` });
     }
 
-    // Update the booked transactions sequentially
+    // Update booked transactions sequentially
     let qtyToTake = quantity;
     for (const txn of bookedTransactions) {
       const available = txn.quantity - (txn.taken || 0);
@@ -115,6 +115,12 @@ const takeFood = async (req, res) => {
 
       const takeNow = Math.min(available, qtyToTake);
       txn.taken = (txn.taken || 0) + takeNow;
+
+      // Update status and transactionType if fully taken
+      if (txn.taken >= txn.quantity) {
+        txn.transactionType = "take"; // update type to "take"
+      }
+
       await txn.save();
 
       qtyToTake -= takeNow;
@@ -122,7 +128,7 @@ const takeFood = async (req, res) => {
     }
 
     res.status(200).json({
-      message: "Food taken successfully (book transaction updated).",
+      message: "Food taken successfully.",
       totalTaken: quantity,
       remainingAfterTake: remainingToTake - quantity,
     });
@@ -134,6 +140,9 @@ const takeFood = async (req, res) => {
     });
   }
 };
+
+module.exports = { takeFood };
+
 
 
 // List all recipient transactions
