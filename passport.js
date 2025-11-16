@@ -47,9 +47,9 @@ passport.use(
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser(async (user, done) => {
   let UserModel;
-  if (user.type === "ngo") UserModel = require("../models/NGO");
-  else if (user.type === "donor") UserModel = require("../models/Donor");
-  else if (user.type === "recipient") UserModel = require("../models/Recipient");
+  if (user.type === "ngo") UserModel = require("./models/NGO");
+  else if (user.type === "donor") UserModel = require("./models/Donor");
+  else if (user.type === "recipient") UserModel = require("./models/Recipient");
 
   const u = await UserModel.findById(user.id);
   done(null, u);
