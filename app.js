@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 
 const express = require("express");
 const mongoose = require("mongoose");
@@ -11,13 +13,14 @@ const recipientTransactionRoutes = require("./routes/recipientTransactionRoutes"
 const authRoutes = require("./routes/authRoutes");
 const app = express();
 const passport = require("passport");
-require("passport"); // load google strategy
+require("./passport"); // load google strategy
 const session = require("express-session");
 
 //CORS 
 app.use(cors({
-  origin: "*", // allows all frontends (React, Angular, etc.)
+  origin: "http://localhost:3000", // allows all frontends (React, Angular, etc.)
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  credentials: true,
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
@@ -30,7 +33,10 @@ app.use(
   session({
     secret: "your-session-secret",
     resave: false,
-    saveUninitialized: false,
+    saveUninitialized: true,
+    cookie:{
+      secure:false,
+    }
   })
 );
 

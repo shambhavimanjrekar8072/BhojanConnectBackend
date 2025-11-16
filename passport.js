@@ -1,20 +1,21 @@
 const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
-const NGO = require("../models/NGO");
-const Donor = require("../models/Donor");
-const Recipient = require("../models/Recipient");
+const NGO = require("./models/NGO");
+const Donor = require("./models/Donor");
+const Recipient = require("./models/Recipient");
 
 passport.use(
   new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "/auth/google/callback",
+      callbackURL: "http://localhost:8000/auth/google/callback",
       passReqToCallback: true, // get req to access userType
     },
     async (req, accessToken, refreshToken, profile, done) => {
+      console.log("User type inside callback:", req.query.userType);
       try {
-        const userType = req.query.userType; // ngo / donor / recipient
+        const userType = req.session.userType; // ngo / donor / recipient
         let UserModel;
 
         if (userType === "ngo") UserModel = NGO;

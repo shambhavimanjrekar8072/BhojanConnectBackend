@@ -21,7 +21,7 @@ router.get(
     req.query.userType = req.session.userType;
     next();
   },
-  passport.authenticate("google", { failureRedirect: "/login" }),
+  passport.authenticate("google", { failureRedirect: "http://localhost:3000/" }),
   (req, res) => {
     res.json({
       message: "Google login successful",
